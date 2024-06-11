@@ -1,0 +1,17 @@
+html {
+	background-color: #B1EAA1
+
+}
+h1{
+	
+	color: #EB6CB3
+}
+p{
+	color : #EB5F56
+}
+body {
+	width : 600px;
+	margin : 0 auto;
+	background-color : #FFD9E4;
+	padding : 0 20px 20 px 20 px;
+	border : 5px solid green;
