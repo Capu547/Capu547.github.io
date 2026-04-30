@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <title>Snake</title>
+
+  <style>
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+
+    body {
+
+      background: #1a1a2e;
+
+      display: flex;
+
+      flex-direction: column;
+
+      align-items: center;
+
+      justify-content: center;
+
+      min-height: 100vh;
+
+      font-family: 'Courier New', monospace;
+
+      color: #eee;
+
+      gap: 16px;
+
+    }
+
+
+    h1 { font-size: 2rem; color: #e2b96f; letter-spacing: 4px; }
+
+
+    #hud { font-size: 1rem; letter-spacing: 2px; color: #aaa; }
+
+    #hud b { color: #e2b96f; }
+
+
+    canvas {
+
+      border: 3px solid #e2b96f;
+
+      display: block;
+
+      outline: none;
+
+    }
+
+
+    #dpad {
+
+      display: grid;
+
+      grid-template-areas:
+
+        ". up ."
+
+        "left . right"
+
+        ". down .";
+
+      gap: 4px;
+
+    }
+
+
+    #dpad button {
+
+      width: 52px; height: 52px;
+
+      background: #2a2a4a;
+
+      border: 2px solid #e2b96f;
+
+      color: #e2b96f;
+
+      font-size: 1.4rem;
+
+      cursor: pointer;
+
+      border-radius: 6px;
+
+    }
+
+
+    #dpad button:active { background: #e2b96f; color: #1a1a2e; }
+
+
+    .up    { grid-area: up; }
+
+    .left  { grid-area: left; }
+
+    .right { grid-area: right; }
+
+    .down  { grid-area: down; }
+
+
+    #btn-start {
+
+      padding: 10px 32px;
+
+      background: #e2b96f;
+
+      border: none;
+
+      color: #1a1a2e;
+
+      font-size: 1rem;
+
+      font-family: 'Courier New', monospace;
+
+      font-weight: bold;
+
+      cursor: pointer;
+
+      border-radius: 4px;
+
+    }
+
+
+    #btn-start:hover { background: #f5d08a; }
+
+    #message { font-size: 0.85rem; color: #888; text-align: center; }
+
+  </style>
+
+</head>
+
+<body>
+
+
+  <h1>🐍 SNAKE</h1>
+
+
+  <div id="hud">
+
+    SCORE <b id="score">0</b> &nbsp;|&nbsp;
+
+    NIVEAU <b id="level">1</b> &nbsp;|&nbsp;
+
+    MEILLEUR <b id="best">0</b>
+
+  </div>
+
+
+  <canvas id="canvas" width="400" height="400" tabindex="0"></canvas>
+
+
+  <div id="dpad">
+
+    <button class="up"    onclick="changerDirection(0, -1)">▲</button>
+
+    <button class="left"  onclick="changerDirection(-1, 0)">◀</button>
+
+    <button class="right" onclick="changerDirection(1,  0)">▶</button>
+
+    <button class="down"  onclick="changerDirection(0,  1)">▼</button>
+
+  </div>
+
+
+  <button id="btn-start" onclick="demarrerPartie()">▶ JOUER</button>
+
+  <p id="message">Clique sur JOUER puis utilise les flèches ou le D-pad</p>
+
+
+<script>
+
+  const canvas  = document.getElementById('canvas');
+
+  const ctx     = canvas.getContext('2d');
+
+  const scoreEl = document.getElementById('score');
+
+  const levelEl = document.getElementById('level');
+
+  const bestEl  = document.getElementById('best');
+
+  const btnEl   = document.getElementById('btn-start');
+
+  const msgEl   = document.getElementById('message');
+
+
+  const TAILLE   = 20;
+
+  const COLS     = canvas.width  / TAILLE;
+
+  const LIGNES   = canvas.height / TAILLE;
+
+  const VITESSES = [200, 160, 130, 100, 80];
+
+
+  let serpent, direction, dirSuivante, pomme;
+
+  let score, meilleur = 0, niveau;
+
+  let intervalId, enCours = false;
+
+
+  function initialiser() {
+
+    serpent = [
+
+      { x: 12, y: 10 },
+
+      { x: 11, y: 10 },
+
+      { x: 10, y: 10 },
+
+    ];
+
+    direction   = { x: 1, y: 0 };
+
+    dirSuivante = { x: 1, y: 0 };
+
+    score  = 0;
+
+    niveau = 1;
+
+    mettreAJourHUD();
+
+    placerPomme();
+
+  }
+
+
+  function placerPomme() {
+
+    let pos;
+
+    do {
+
+      pos = {
+
+        x: Math.floor(Math.random() * COLS),
+
+        y: Math.floor(Math.random() * LIGNES),
+
+      };
+
+    } while (serpent.some(seg => seg.x === pos.x && seg.y === pos.y));
+
+    pomme = pos;
+
+  }
+
+
+  function changerDirection(dx, dy) {
+
+    const demitour = (dx + direction.x === 0 && dy + direction.y === 0);
+
+    if (!demitour) dirSuivante = { x: dx, y: dy };
+
+  }
+
+
+  function tick() {
+
+    direction = dirSuivante;
+
+
+    const nouvelleTete = {
+
+      x: serpent[0].x + direction.x,
+
+      y: serpent[0].y + direction.y,
+
+    };
+
+
+    if (
+
+      nouvelleTete.x < 0 || nouvelleTete.x >= COLS ||
+
+      nouvelleTete.y < 0 || nouvelleTete.y >= LIGNES
+
+    ) { finDePartie(); return; }
+
+
+    if (serpent.slice(0, -1).some(seg => seg.x === nouvelleTete.x && seg.y === nouvelleTete.y)) {
+
+      finDePartie(); return;
+
+    }
+
+
+    serpent.unshift(nouvelleTete);
+
+
+    if (nouvelleTete.x === pomme.x && nouvelleTete.y === pomme.y) {
+
+      score += 10;
+
+      if (score > meilleur) meilleur = score;
+
+      const nouveauNiveau = Math.min(Math.floor(score / 50) + 1, VITESSES.length);
+
+      if (nouveauNiveau !== niveau) {
+
+        niveau = nouveauNiveau;
+
+        clearInterval(intervalId);
+
+        intervalId = setInterval(tick, VITESSES[niveau - 1]);
+
+      }
+
+      mettreAJourHUD();
+
+      placerPomme();
+
+    } else {
+
+      serpent.pop();
+
+    }
+
+
+    dessiner();
+
+  }
+
+
+  function dessiner() {
+
+    ctx.fillStyle = '#1a1a2e';
+
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+
+    ctx.strokeStyle = '#252545';
+
+    ctx.lineWidth = 0.5;
+
+    for (let c = 0; c < COLS; c++) {
+
+      for (let l = 0; l < LIGNES; l++) {
+
+        ctx.strokeRect(c * TAILLE, l * TAILLE, TAILLE, TAILLE);
+
+      }
+
+    }
+
+
+    ctx.fillStyle = '#e74c3c';
+
+    ctx.fillRect(pomme.x * TAILLE + 2, pomme.y * TAILLE + 2, TAILLE - 4, TAILLE - 4);
+
+
+    serpent.forEach(function(seg, i) {
+
+      ctx.fillStyle = (i === 0) ? '#f0c040' : '#27ae60';
+
+      ctx.fillRect(seg.x * TAILLE + 1, seg.y * TAILLE + 1, TAILLE - 2, TAILLE - 2);
+
+    });
+
+  }
+
+
+  function finDePartie() {
+
+    clearInterval(intervalId);
+
+    enCours = false;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+
+    ctx.fillRect(80, 155, 240, 90);
+
+    ctx.fillStyle = '#e74c3c';
+
+    ctx.font = 'bold 28px Courier New';
+
+    ctx.textAlign = 'center';
+
+    ctx.fillText('GAME OVER', 200, 195);
+
+    ctx.fillStyle = '#eee';
+
+    ctx.font = '16px Courier New';
+
+    ctx.fillText('Score : ' + score, 200, 225);
+
+    btnEl.textContent = '↺ REJOUER';
+
+    msgEl.textContent = 'Clique sur REJOUER pour recommencer';
+
+  }
+
+
+  function demarrerPartie() {
+
+    if (enCours) return;
+
+    initialiser();
+
+    enCours = true;
+
+    btnEl.textContent = 'EN COURS...';
+
+    msgEl.textContent = '↑ ↓ ← → ou D-pad pour jouer';
+
+    intervalId = setInterval(tick, VITESSES[0]);
+
+    canvas.focus();
+
+    dessiner();
+
+  }
+
+
+  canvas.addEventListener('keydown', function(e) {
+
+    if (!enCours) return;
+
+    if (e.key === 'ArrowUp'    || e.key === 'z' || e.key === 'Z') { e.preventDefault(); changerDirection(0, -1); }
+
+    if (e.key === 'ArrowDown'  || e.key === 's' || e.key === 'S') { e.preventDefault(); changerDirection(0,  1); }
+
+    if (e.key === 'ArrowLeft'  || e.key === 'q' || e.key === 'Q') { e.preventDefault(); changerDirection(-1, 0); }
+
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { e.preventDefault(); changerDirection(1,  0); }
+
+  });
+
+
+  function mettreAJourHUD() {
+
+    scoreEl.textContent = score;
+
+    levelEl.textContent = niveau;
+
+    bestEl.textContent  = meilleur;
+
+  }
+
+
+  ctx.fillStyle = '#1a1a2e';
+
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = '#252545';
+
+  ctx.lineWidth = 0.5;
+
+  for (let c = 0; c < COLS; c++) {
+
+    for (let l = 0; l < LIGNES; l++) {
+
+      ctx.strokeRect(c * TAILLE, l * TAILLE, TAILLE, TAILLE);
+
+    }
+
+  }
+
+  ctx.fillStyle = '#e2b96f';
+
+  ctx.font = 'bold 18px Courier New';
+
+  ctx.textAlign = 'center';
+
+  ctx.fillText('▶ Clique sur JOUER', 200, 200);
+
+</script>
+
+</body>
+
+</html>
